@@ -143,7 +143,8 @@ namespace Server
             {
                 foreach (string message in this.messageHistory)
                 {
-                    messagesSoFar += message.Length + message;
+                    string messageWithDelimiter = "|" + message; 
+                    messagesSoFar += messageWithDelimiter.Length + messageWithDelimiter;
                 }
             }
             finally

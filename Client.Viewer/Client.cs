@@ -85,6 +85,9 @@ namespace Client.Viewer
 
                     int currentMessageBeingProcessedEndCharIndex = currentCharIndex + messageToBeProcessedLength - 1;
 
+                    //skip the '|' character (delimiter)
+                    currentCharIndex++;
+
                     while (currentCharIndex <= currentMessageBeingProcessedEndCharIndex && currentCharIndex < messageHistory.Length)
                     {
                         currentMessageBeingProcessed += messageHistory[currentCharIndex];
