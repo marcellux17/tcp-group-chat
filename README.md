@@ -3,9 +3,9 @@ A simple multi-client tcp group chat built using TcpClient and TcpListener from 
 Application-level keep-alives (heartbeats) are also implemented to detect half-open connections. The type of each message (normal or heartbeat) is indicated by the first byte of the stream.
 
 ## Features
-There are two types of clients implemented: viewer and messenger: 
-Its because a client where writing to the console(received messages) and reading from the console(sending messages) at the same would have been a pain in the ass to implement(not impossible though), and I was mostly interested in the networking side of the project.
-The client type is indicated by the first message that they send to the server, the payload is either "viewer" or "messenger".
+There are two types of clients implemented: viewer and messenger.
+It's because managing concurrent console reading and writing on the client would have been pretty challenging to implement (basically a mini text editor). Since my main interest was in the backend aspects, I decided to keep that part simpler.
+The client type is indicated by the first message that is sent to the server, the payload is either "viewer" or "messenger".
 
 ### Messenger
 Each messenger can have a unique username associated with it. Usernames are kept track of on the server side. 
