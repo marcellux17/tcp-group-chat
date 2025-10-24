@@ -94,6 +94,7 @@ namespace Client.Viewer
                         currentCharIndex++;
                     }
                     Console.WriteLine(currentMessageBeingProcessed);
+                    Console.WriteLine("----------------------------------------------");
                 } while (currentCharIndex < messageHistory.Length);
 
             }
@@ -114,6 +115,7 @@ namespace Client.Viewer
                 else//its a normal message we print it to the console
                 {
                     Console.WriteLine(message);
+                    Console.WriteLine("----------------------------------------------");
                 }
             }
         }
