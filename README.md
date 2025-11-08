@@ -18,7 +18,7 @@ Viewers receive normal messages along with heartbeats of course. The first norma
 It does all of the features mentioned above: handling messengers with unique usernames, handling viewers and sending keep-alives to check half-open connections. If a half open connection is detected(client not responding) it immediately disconnects the client.
 Keep alives: sends heartbeat messages (first byte being 1) periodically, at most it allows 3 retries(heartbeats with no response from the client) if the 3rd retry fails the server considers the client dead, it disconnects.
 
-### Protocol summar:
+### Protocol summary:
 | Bytes   | Description                                  |
 | ------- | -------------------------------------------- |
 | 1       | Message type (0 = normal, 1 = heartbeat)     |
