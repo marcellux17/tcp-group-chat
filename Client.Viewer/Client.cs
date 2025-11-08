@@ -33,10 +33,8 @@ namespace Client.Viewer
                 socket.Connect(remoteEndPoint);
                 connectionAliveFlag = 1;
                 CheckHeartBeats();
-                //first we indicate to the server that we are a messenger
                 await SendMessage(0, "viewer");
 
-                //then we wait for message history to appear(first normal message from server)
                 string? messageHistory = null;
                 do
                 {
@@ -54,10 +52,8 @@ namespace Client.Viewer
                     }
                 } while (messageHistory == null);
 
-                //we print message history
                 PrintMessageHistory(messageHistory);
 
-                //we just listen for messages
                 await Listen();
             }
             catch (Exception ex)
@@ -85,7 +81,6 @@ namespace Client.Viewer
 
                     int currentMessageBeingProcessedEndCharIndex = currentCharIndex + messageToBeProcessedLength - 1;
 
-                    //skip the '|' character (delimiter)
                     currentCharIndex++;
 
                     while (currentCharIndex <= currentMessageBeingProcessedEndCharIndex && currentCharIndex < messageHistory.Length)
@@ -109,10 +104,9 @@ namespace Client.Viewer
                 string message = await NetworkHelper.GetMessage(socket, messageLength);
                 if (messageType == 1)
                 {
-                    //its a heartbeat we send back a heartbeat response
                     await SendMessage(1, "PONG");
                 }
-                else//its a normal message we print it to the console
+                else
                 {
                     Console.WriteLine(message);
                     Console.WriteLine("----------------------------------------------");
@@ -131,7 +125,6 @@ namespace Client.Viewer
                 }
                 else if (heartBeatChecksLeft < 0)
                 {
-                    //we disconnect
                     await CloseClient();
                 }
                 if (Interlocked.CompareExchange(ref connectionAliveFlag, 1, 1) == 1)

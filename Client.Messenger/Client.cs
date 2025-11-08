@@ -16,13 +16,13 @@ namespace Client.Messenger
         int heartBeatIntervalInSec = 5;
         int heartBeatChecksLimit = 3;
 
-        DateTime lastMessage;//for heartbeats, keeping track of when we last heard from the server
+        DateTime lastMessage;
 
         TcpClient socket;
         IPEndPoint remoteEndPoint;
 
-        SemaphoreSlim writeLock;//writeLock for concurrency, heartbeats and normal messages both write to the socket
-        Channel<string> normalMessages; //channel for normal messages, read by the loop where we ask for a username and produced by the listening loop
+        SemaphoreSlim writeLock;
+        Channel<string> normalMessages;
 
         int connectionAliveFlag;
 
@@ -42,13 +42,13 @@ namespace Client.Messenger
                 connectionAliveFlag = 1;
                 Console.WriteLine("Welcome to group chat!");
                 Console.WriteLine("Open a message viewer to see messages!");
-                //first we indicate to the server that we are a messenger
+
                 await SendMessage(0, "messenger");
 
                 CheckHeartBeats();
                 Listen();
                 string response = "taken";
-                do //beggining phase: we try to register a username
+                do
                 {
                     Console.Write("Choose a username: ");
                     string username = Console.ReadLine();
@@ -61,9 +61,9 @@ namespace Client.Messenger
                     }
                     Console.Clear();
                 } while (response != "accepted" && Interlocked.CompareExchange(ref connectionAliveFlag, 1, 1) == 1);
-                //username accepted we enter the listening loop
+
                 
-                //we listen for userinputs
+
                 while (Interlocked.CompareExchange(ref connectionAliveFlag, 1, 1) == 1)
                 {
                     Console.Clear();
@@ -86,12 +86,12 @@ namespace Client.Messenger
                 lastMessage = DateTime.UtcNow;
                 int messageLength = await NetworkHelper.GetMessageLength(socket);
                 string message = await NetworkHelper.GetMessage(socket, messageLength);
-                if (messageType == 1)//its not a heartbeat(0: normal message, 1 denotes heartbeat)
+                if (messageType == 1)
                 {
-                    //its a heartbeat we send back a heartbeat response
+
                     await SendMessage(1, "PONG");
                 }
-                else//message is a normal message we write to the channel
+                else
                 {
                     await normalMessages.Writer.WriteAsync(message);
                 }
@@ -109,7 +109,6 @@ namespace Client.Messenger
                 }
                 else if (heartBeatChecksLeft < 0)
                 {
-                    //we disconnect
                     await CloseClient();
                 }
                 if (Interlocked.CompareExchange(ref connectionAliveFlag, 1, 1) == 1)

@@ -19,38 +19,30 @@ namespace Server
 
         TcpListener listener;
 
-        //for messengers
-        ConcurrentDictionary<TcpClient, string> clientToUsername;//when broadcasting we associate incoming messages from a socket with usernames
-        ConcurrentDictionary<string, TcpClient> usernameToClient;//for quickly checking if a username is taken
-        
-        //for all clients
-        ConcurrentDictionary<TcpClient, DateTime> lastHeard;//DateTime will hold timestamps of when the server last heard from the client its for checking connection lost
-        ConcurrentDictionary<TcpClient, SemaphoreSlim> writeLocks;//need locks on the write stream because two loops could access it concurrently: heartbeat loop and response loop
+        ConcurrentDictionary<TcpClient, string> clientToUsername;
+        ConcurrentDictionary<string, TcpClient> usernameToClient;
 
-        //for viewers
+        ConcurrentDictionary<TcpClient, DateTime> lastHeard;
+        ConcurrentDictionary<TcpClient, SemaphoreSlim> writeLocks;
+
         List<TcpClient> viewers;
         SemaphoreSlim viewersListLock;
 
-        //message history for viewers that connect later
         List<string> messageHistory;
         SemaphoreSlim messageHistoryLock;
 
-        //message queue for messages
         Channel<string> messageQueue;
         public Server()
         {
             IPEndPoint ep = new IPEndPoint(IPAddress.Any, 56000);
             listener = new TcpListener(ep);
 
-            //messengers
             clientToUsername = new ConcurrentDictionary<TcpClient, string>();
             usernameToClient = new ConcurrentDictionary<string, TcpClient>();
 
-            //for all clients
             lastHeard = new ConcurrentDictionary<TcpClient, DateTime>();
             writeLocks = new ConcurrentDictionary<TcpClient, SemaphoreSlim>();
 
-            //viewers
             viewers = new List<TcpClient>();
             viewersListLock = new SemaphoreSlim(1, 1);
 
@@ -78,9 +70,7 @@ namespace Server
             {
                 StartHeartBeatForClient(client);
 
-                //checking first message if its a viewer or messenger
                 string? clientType = null;
-                //loop while its heartbeat
                 do
                 {
                     int messageType = await NetworkHelper.GetMessageType(client);
@@ -95,12 +85,10 @@ namespace Server
 
                 if (clientType == "messenger")
                 {
-                    //its a messenger
                     await HandleMessenger(client);
                 }
                 else 
                 {
-                    //its viewer
                     await HandleViewer(client);
                 }
                 
@@ -123,10 +111,8 @@ namespace Server
                 viewersListLock.Release();
             }
 
-            //we send the message history
             await SendMessageHistoryMessage(client);
 
-            //its a viewer, we just listen for pongs
             while (true)
             {
                 await NetworkHelper.GetMessageType(client);
@@ -156,7 +142,7 @@ namespace Server
         private async Task HandleMessenger(TcpClient client)
         {
             string? username = null;
-            //we wait until we receive a valid username
+
             do
             {
                 int messageType = await NetworkHelper.GetMessageType(client);
@@ -165,7 +151,7 @@ namespace Server
                 string message = await NetworkHelper.GetMessage(client, messageLength);
                 if (messageType == 0)
                 {
-                    //its not a heartbeat(0: normal message, 1 denotes heartbeat)
+
                     username = message;
                     if (usernameToClient.ContainsKey(username))
                     {
@@ -174,7 +160,6 @@ namespace Server
                 }
 
             } while (username == null || usernameToClient.ContainsKey(username));
-            //username is not taken
 
             usernameToClient[username] = client;
             clientToUsername[client] = username;
@@ -193,7 +178,6 @@ namespace Server
                 messageHistoryLock.Release();
             }
 
-            //listening loop for the client
             while (true)
             {
                 int messageType = await NetworkHelper.GetMessageType(client);
@@ -202,10 +186,9 @@ namespace Server
                 string message = await NetworkHelper.GetMessage(client, messageLength);
 
                 if (messageType == 1) continue;
-                //its not a heartbeat(0: normal message, 1 denotes heartbeat)
 
-                //add it to the message history
                 string formattedMessage = $"[{username}]: {message}";
+                
                 await messageHistoryLock.WaitAsync();
                 try
                 {
@@ -228,7 +211,7 @@ namespace Server
             {
                 while (messageQueue.Reader.TryRead(out var message))
                 {
-                    List<TcpClient> snapShot;//we loop through a snapshot this way if we encounter an error we won't modify the list we are iterating over
+                    List<TcpClient> snapShot;
                     await viewersListLock.WaitAsync();
                     try
                     {
@@ -279,7 +262,7 @@ namespace Server
                 }
                 else
                 {
-                    //we disconnect
+                   
                     await CloseClient(client);
                     break;
                 }
@@ -289,27 +272,23 @@ namespace Server
         }
         private async Task CloseClient(TcpClient client)
         {
-
-            bool success = writeLocks.TryRemove(client, out _);
-            if (success) //if check necessary for not printing "Client disconnected..." multiple times to the console
+            if (clientToUsername.TryRemove(client, out string? username))
             {
-                success = clientToUsername.TryRemove(client, out string username);
-                if (success)//disconnection could still happen if no username was chosen
+                usernameToClient.TryRemove(username!, out _);
+                string clientLeftMessage = $"{username} has left the chat.";
+                await messageHistoryLock.WaitAsync();
+                try
                 {
-                    usernameToClient.TryRemove(username, out _);
-                    string clientLeftMessage = $"{username} has left the chat.";
-                    await messageHistoryLock.WaitAsync();
-                    try
-                    {
-                        messageHistory.Add(clientLeftMessage);
-                    }
-                    finally
-                    {
-                        messageHistoryLock.Release();
-                    }
-                    await EnqueueMessage(clientLeftMessage);
+                    messageHistory.Add(clientLeftMessage);
                 }
+                finally
+                {
+                    messageHistoryLock.Release();
+                }
+                await EnqueueMessage(clientLeftMessage);
+
                 lastHeard.TryRemove(client, out _);
+                writeLocks.TryRemove(client, out _);
                 
                 Console.WriteLine($"Client disconnected: {client.Client.RemoteEndPoint?.ToString()}");
                 
@@ -317,7 +296,7 @@ namespace Server
             }
             else
             {
-                //we failed(success was false) because client might be a viewer client in which case we need a different removal
+
                 await viewersListLock.WaitAsync();
                 try
                 {
