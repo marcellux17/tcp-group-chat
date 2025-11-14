@@ -5,7 +5,7 @@ namespace Helpers
 {
     public static class NetworkHelper
     {
-        public const int headerLength = 4;
+        public const int HEADER_LENGTH = 4;
         public static async Task<int> GetMessageType(TcpClient tcpClient)
         {
             NetworkStream networkStream = tcpClient.GetStream();
@@ -36,8 +36,8 @@ namespace Helpers
         {
             NetworkStream networkStream = tcpClient.GetStream();
 
-            byte[] headerBuffer = new byte[headerLength];
-            await networkStream.ReadExactlyAsync(headerBuffer, 0, headerLength);
+            byte[] headerBuffer = new byte[HEADER_LENGTH];
+            await networkStream.ReadExactlyAsync(headerBuffer, 0, HEADER_LENGTH);
 
             if (!BitConverter.IsLittleEndian)
             {

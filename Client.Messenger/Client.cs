@@ -7,33 +7,33 @@ namespace Client.Messenger
 {
     internal class Client
     {
-        int heartBeatIntervalInSec = 5;
-        int heartBeatChecksLimit = 3;
+        const int HEARTBEAT_INTERVALS_IN_SEC = 5;
+        const int HEARBEAT_CHECKS_LIMIT = 3;
 
-        DateTime lastMessage;
+        DateTime _lastMessage;
 
-        TcpClient socket;
-        IPEndPoint remoteEndPoint;
+        TcpClient _socket;
+        IPEndPoint _remoteEndPoint;
 
-        SemaphoreSlim writeLock;
-        Channel<string> normalMessages;
+        SemaphoreSlim _writeLock;
+        Channel<string> _normalMessages;
 
-        int connectionAliveFlag;
+        int _connectionAliveFlag;
 
         public Client(IPAddress serverAddress, Int32 serverPort)
         {
-            remoteEndPoint = new IPEndPoint(serverAddress, serverPort);
-            socket = new TcpClient(new IPEndPoint(IPAddress.Any, 0));
-            connectionAliveFlag = 0;
-            writeLock = new SemaphoreSlim(1, 1);
-            normalMessages = Channel.CreateUnbounded<string>();
+            _remoteEndPoint = new IPEndPoint(serverAddress, serverPort);
+            _socket = new TcpClient(new IPEndPoint(IPAddress.Any, 0));
+            _connectionAliveFlag = 0;
+            _writeLock = new SemaphoreSlim(1, 1);
+            _normalMessages = Channel.CreateUnbounded<string>();
         }
         public async Task Connect()
         {
             try
             {
-                socket.Connect(remoteEndPoint);
-                connectionAliveFlag = 1;
+                _socket.Connect(_remoteEndPoint);
+                _connectionAliveFlag = 1;
                 Console.WriteLine("Welcome to group chat!");
                 Console.WriteLine("Open a message viewer to see messages!");
 
@@ -48,17 +48,17 @@ namespace Client.Messenger
                     string username = Console.ReadLine();
 
                     await SendMessage(0, username);
-                    bool canRead = await normalMessages.Reader.WaitToReadAsync();
+                    bool canRead = await _normalMessages.Reader.WaitToReadAsync();
                     if (canRead)
                     {
-                        response = await normalMessages.Reader.ReadAsync();
+                        response = await _normalMessages.Reader.ReadAsync();
                     }
                     Console.Clear();
-                } while (response != "accepted" && Interlocked.CompareExchange(ref connectionAliveFlag, 1, 1) == 1);
+                } while (response != "accepted" && Interlocked.CompareExchange(ref _connectionAliveFlag, 1, 1) == 1);
 
                 
 
-                while (Interlocked.CompareExchange(ref connectionAliveFlag, 1, 1) == 1)
+                while (Interlocked.CompareExchange(ref _connectionAliveFlag, 1, 1) == 1)
                 {
                     Console.Clear();
                     Console.Write("Enter message: ");
@@ -72,14 +72,14 @@ namespace Client.Messenger
             }
 
         }
-        private async Task Listen()
+        async Task Listen()
         {
-            while (Interlocked.CompareExchange(ref connectionAliveFlag, 1, 1) == 1)
+            while (Interlocked.CompareExchange(ref _connectionAliveFlag, 1, 1) == 1)
             {
-                int messageType = await NetworkHelper.GetMessageType(socket);
-                lastMessage = DateTime.UtcNow;
-                int messageLength = await NetworkHelper.GetMessageLength(socket);
-                string message = await NetworkHelper.GetMessage(socket, messageLength);
+                int messageType = await NetworkHelper.GetMessageType(_socket);
+                _lastMessage = DateTime.UtcNow;
+                int messageLength = await NetworkHelper.GetMessageLength(_socket);
+                string message = await NetworkHelper.GetMessage(_socket, messageLength);
                 if (messageType == 1)
                 {
 
@@ -87,51 +87,51 @@ namespace Client.Messenger
                 }
                 else
                 {
-                    await normalMessages.Writer.WriteAsync(message);
+                    await _normalMessages.Writer.WriteAsync(message);
                 }
             }
         }
-        private async Task CheckHeartBeats()
+       async Task CheckHeartBeats()
         {
-            int heartBeatChecksLeft = heartBeatChecksLimit;
-            while (Interlocked.CompareExchange(ref connectionAliveFlag, 1, 1) == 1)
+            int heartBeatChecksLeft = HEARBEAT_CHECKS_LIMIT;
+            while (Interlocked.CompareExchange(ref _connectionAliveFlag, 1, 1) == 1)
             {
                 heartBeatChecksLeft--;
-                if ((DateTime.UtcNow - lastMessage).TotalSeconds <= heartBeatIntervalInSec * 2.5 && heartBeatChecksLeft >= 0)
+                if ((DateTime.UtcNow - _lastMessage).TotalSeconds <= HEARTBEAT_INTERVALS_IN_SEC * 2.5 && heartBeatChecksLeft >= 0)
                 {
-                    heartBeatChecksLeft = heartBeatChecksLimit;
+                    heartBeatChecksLeft = HEARBEAT_CHECKS_LIMIT;
                 }
                 else if (heartBeatChecksLeft < 0)
                 {
                     await CloseClient();
                 }
-                if (Interlocked.CompareExchange(ref connectionAliveFlag, 1, 1) == 1)
+                if (Interlocked.CompareExchange(ref _connectionAliveFlag, 1, 1) == 1)
                 {
-                    await Task.Delay(heartBeatIntervalInSec * 1000);
+                    await Task.Delay(HEARTBEAT_INTERVALS_IN_SEC * 1000);
                 }
             }
         }
-        private async Task CloseClient()
+        async Task CloseClient()
         {
-            if (Interlocked.Exchange(ref connectionAliveFlag, 0) == 1)
+            if (Interlocked.Exchange(ref _connectionAliveFlag, 0) == 1)
             {
                 Console.WriteLine($"Server unavailble, client shutting down");
-                socket.Close();
+                _socket.Close();
                 await Task.Delay(500);
                 Environment.Exit(0);
             }
 
         }
-        private async Task SendMessage(int messageType, string message)
+        async Task SendMessage(int messageType, string message)
         {
-            await writeLock.WaitAsync();
+            await _writeLock.WaitAsync();
             try
             {
-                await NetworkHelper.SendMessage(messageType, socket, message);
+                await NetworkHelper.SendMessage(messageType, _socket, message);
             }
             finally
             {
-                writeLock.Release();
+                _writeLock.Release();
             }
         }
     }

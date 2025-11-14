@@ -8,57 +8,57 @@ namespace Server
 {
     internal class Server
     {
-        const int heartBeatIntervalInSec = 5;
-        const int heartBeatChecksLimit = 3;
+        const int HEARTBEAT_INTERVAL_IN_SEC = 5;
+        const int HEARTBEAT_CHECK_LIMIT = 3;
 
-        TcpListener listener;
+        TcpListener _listener;
 
-        ConcurrentDictionary<TcpClient, string> clientToUsername;
-        ConcurrentDictionary<string, TcpClient> usernameToClient;
+        ConcurrentDictionary<TcpClient, string> _clientToUsername;
+        ConcurrentDictionary<string, TcpClient> _usernameToClient;
 
-        ConcurrentDictionary<TcpClient, DateTime> lastHeard;
-        ConcurrentDictionary<TcpClient, SemaphoreSlim> writeLocks;
+        ConcurrentDictionary<TcpClient, DateTime> _lastHeard;
+        ConcurrentDictionary<TcpClient, SemaphoreSlim> _writeLocks;
 
-        List<TcpClient> viewers;
-        SemaphoreSlim viewersListLock;
+        List<TcpClient> _viewers;
+        SemaphoreSlim _viewersListLock;
 
-        List<string> messageHistory;
-        SemaphoreSlim messageHistoryLock;
+        List<string> _messageHistory;
+        SemaphoreSlim _messageHistoryLock;
 
-        Channel<string> messageQueue;
+        Channel<string> _messageQueue;
         public Server()
         {
             IPEndPoint ep = new IPEndPoint(IPAddress.Any, 56000);
-            listener = new TcpListener(ep);
+            _listener = new TcpListener(ep);
 
-            clientToUsername = new ConcurrentDictionary<TcpClient, string>();
-            usernameToClient = new ConcurrentDictionary<string, TcpClient>();
+            _clientToUsername = new ConcurrentDictionary<TcpClient, string>();
+            _usernameToClient = new ConcurrentDictionary<string, TcpClient>();
 
-            lastHeard = new ConcurrentDictionary<TcpClient, DateTime>();
-            writeLocks = new ConcurrentDictionary<TcpClient, SemaphoreSlim>();
+            _lastHeard = new ConcurrentDictionary<TcpClient, DateTime>();
+            _writeLocks = new ConcurrentDictionary<TcpClient, SemaphoreSlim>();
 
-            viewers = new List<TcpClient>();
-            viewersListLock = new SemaphoreSlim(1, 1);
+            _viewers = new List<TcpClient>();
+            _viewersListLock = new SemaphoreSlim(1, 1);
 
-            messageQueue = Channel.CreateUnbounded<string>();
+            _messageQueue = Channel.CreateUnbounded<string>();
 
-            messageHistory = new List<string>();
-            messageHistoryLock = new SemaphoreSlim(1, 1);
+            _messageHistory = new List<string>();
+            _messageHistoryLock = new SemaphoreSlim(1, 1);
         }
         public async Task Start()
         {
-            listener.Start();
+            _listener.Start();
             StartBroadcastLoop();
             while (true)
             {
-                TcpClient client = await listener.AcceptTcpClientAsync();
+                TcpClient client = await _listener.AcceptTcpClientAsync();
                 HandleNewClient(client);
             }
         }
-        private async Task HandleNewClient(TcpClient client)
+        async Task HandleNewClient(TcpClient client)
         {
-            lastHeard[client] =  DateTime.UtcNow;
-            writeLocks[client] = new SemaphoreSlim(1, 1);
+            _lastHeard[client] =  DateTime.UtcNow;
+            _writeLocks[client] = new SemaphoreSlim(1, 1);
             Console.WriteLine($"Client connected: {client.Client.RemoteEndPoint.ToString()}");
             try
             {
@@ -68,7 +68,7 @@ namespace Server
                 do
                 {
                     int messageType = await NetworkHelper.GetMessageType(client);
-                    lastHeard[client] = DateTime.UtcNow;
+                    _lastHeard[client] = DateTime.UtcNow;
                     int messageLength = await NetworkHelper.GetMessageLength(client);
                     string message = await NetworkHelper.GetMessage(client, messageLength);
                     if (messageType == 0)
@@ -93,16 +93,16 @@ namespace Server
             }
             
         }
-        private async Task HandleViewer(TcpClient client)
+        async Task HandleViewer(TcpClient client)
         {
-            await viewersListLock.WaitAsync();
+            await _viewersListLock.WaitAsync();
             try
             {
-                viewers.Add(client);
+                _viewers.Add(client);
             }
             finally
             {
-                viewersListLock.Release();
+                _viewersListLock.Release();
             }
 
             await SendMessageHistoryMessage(client);
@@ -110,18 +110,18 @@ namespace Server
             while (true)
             {
                 await NetworkHelper.GetMessageType(client);
-                lastHeard[client] = DateTime.UtcNow;
+                _lastHeard[client] = DateTime.UtcNow;
                 int messageLength =  await NetworkHelper.GetMessageLength(client);
                 await NetworkHelper.GetMessage(client, messageLength);
             }
         }
-        private async Task SendMessageHistoryMessage(TcpClient client)
+        async Task SendMessageHistoryMessage(TcpClient client)
         {
             string messagesSoFar = "";
-            await messageHistoryLock.WaitAsync();
+            await _messageHistoryLock.WaitAsync();
             try
             {
-                foreach (string message in this.messageHistory)
+                foreach (string message in this._messageHistory)
                 {
                     string messageWithDelimiter = "|" + message; 
                     messagesSoFar += messageWithDelimiter.Length + messageWithDelimiter;
@@ -129,53 +129,53 @@ namespace Server
             }
             finally
             {
-                messageHistoryLock.Release();
+                _messageHistoryLock.Release();
             }
             await SendMessageToClient(client, 0, messagesSoFar);
         }
-        private async Task HandleMessenger(TcpClient client)
+        async Task HandleMessenger(TcpClient client)
         {
             string? username = null;
 
             do
             {
                 int messageType = await NetworkHelper.GetMessageType(client);
-                lastHeard[client] = DateTime.UtcNow;
+                _lastHeard[client] = DateTime.UtcNow;
                 int messageLength = await NetworkHelper.GetMessageLength(client);
                 string message = await NetworkHelper.GetMessage(client, messageLength);
                 if (messageType == 0)
                 {
 
                     username = message;
-                    if (usernameToClient.ContainsKey(username))
+                    if (_usernameToClient.ContainsKey(username))
                     {
                         await SendMessageToClient(client, 0, "taken");
                     }
                 }
 
-            } while (username == null || usernameToClient.ContainsKey(username));
+            } while (username == null || _usernameToClient.ContainsKey(username));
 
-            usernameToClient[username] = client;
-            clientToUsername[client] = username;
+            _usernameToClient[username] = client;
+            _clientToUsername[client] = username;
 
             await SendMessageToClient(client, 0, "accepted");
             string userJoinedChatMessage = $"{username} has joined the chat";
             await EnqueueMessage(userJoinedChatMessage);
 
-            await messageHistoryLock.WaitAsync();
+            await _messageHistoryLock.WaitAsync();
             try
             {
-                messageHistory.Add(userJoinedChatMessage);
+                _messageHistory.Add(userJoinedChatMessage);
             }
             finally
             {
-                messageHistoryLock.Release();
+                _messageHistoryLock.Release();
             }
 
             while (true)
             {
                 int messageType = await NetworkHelper.GetMessageType(client);
-                lastHeard[client] = DateTime.UtcNow;
+                _lastHeard[client] = DateTime.UtcNow;
                 int messageLength = await NetworkHelper.GetMessageLength(client);
                 string message = await NetworkHelper.GetMessage(client, messageLength);
 
@@ -183,36 +183,36 @@ namespace Server
 
                 string formattedMessage = $"[{username}]: {message}";
                 
-                await messageHistoryLock.WaitAsync();
+                await _messageHistoryLock.WaitAsync();
                 try
                 {
-                    messageHistory.Add(formattedMessage);
+                    _messageHistory.Add(formattedMessage);
                 }
                 finally
                 {
-                    messageHistoryLock.Release();
+                    _messageHistoryLock.Release();
                 }
                 await EnqueueMessage(formattedMessage);
             }
         }
-        private async Task EnqueueMessage(string message)
+        async Task EnqueueMessage(string message)
         {
-            await messageQueue.Writer.WriteAsync(message);
+            await _messageQueue.Writer.WriteAsync(message);
         }
-        private async Task StartBroadcastLoop()
+        async Task StartBroadcastLoop()
         {
-            while (await messageQueue.Reader.WaitToReadAsync())
+            while (await _messageQueue.Reader.WaitToReadAsync())
             {
-                while (messageQueue.Reader.TryRead(out var message))
+                while (_messageQueue.Reader.TryRead(out var message))
                 {
                     List<TcpClient> snapShot;
-                    await viewersListLock.WaitAsync();
+                    await _viewersListLock.WaitAsync();
                     try
                     {
-                        snapShot = viewers.ToList();
+                        snapShot = _viewers.ToList();
                     }
                     finally{
-                        viewersListLock.Release();
+                        _viewersListLock.Release();
                     }
 
                     var sendTasks = snapShot.Select(async client => {
@@ -231,21 +231,21 @@ namespace Server
                 }
             }
         }
-        private async Task StartHeartBeatForClient(TcpClient client)
+        async Task StartHeartBeatForClient(TcpClient client)
         {
-            int heartBeatChecksLeft = heartBeatChecksLimit;
+            int heartBeatChecksLeft = HEARTBEAT_CHECK_LIMIT;
             while (true)
             {
                 DateTime latest;
-                bool success = lastHeard.TryGetValue(client, out latest);
+                bool success = _lastHeard.TryGetValue(client, out latest);
                 if (!success)
                 {
                     break;
                 }
                 heartBeatChecksLeft--;
-                if ((DateTime.UtcNow - latest).TotalSeconds <= heartBeatIntervalInSec * 2.5 && heartBeatChecksLeft >= 0)
+                if ((DateTime.UtcNow - latest).TotalSeconds <= HEARTBEAT_INTERVAL_IN_SEC * 2.5 && heartBeatChecksLeft >= 0)
                 {
-                    heartBeatChecksLeft = heartBeatChecksLimit;
+                    heartBeatChecksLeft = HEARTBEAT_CHECK_LIMIT;
                     await SendMessageToClient(client, 1, "PING");
 
                 }
@@ -260,29 +260,29 @@ namespace Server
                     await CloseClient(client);
                     break;
                 }
-                await Task.Delay(heartBeatIntervalInSec * 1000);
+                await Task.Delay(HEARTBEAT_INTERVAL_IN_SEC * 1000);
                 
             }
         }
-        private async Task CloseClient(TcpClient client)
+        async Task CloseClient(TcpClient client)
         {
-            if (clientToUsername.TryRemove(client, out string? username))
+            if (_clientToUsername.TryRemove(client, out string? username))
             {
-                usernameToClient.TryRemove(username!, out _);
+                _usernameToClient.TryRemove(username!, out _);
                 string clientLeftMessage = $"{username} has left the chat.";
-                await messageHistoryLock.WaitAsync();
+                await _messageHistoryLock.WaitAsync();
                 try
                 {
-                    messageHistory.Add(clientLeftMessage);
+                    _messageHistory.Add(clientLeftMessage);
                 }
                 finally
                 {
-                    messageHistoryLock.Release();
+                    _messageHistoryLock.Release();
                 }
                 await EnqueueMessage(clientLeftMessage);
 
-                lastHeard.TryRemove(client, out _);
-                writeLocks.TryRemove(client, out _);
+                _lastHeard.TryRemove(client, out _);
+                _writeLocks.TryRemove(client, out _);
                 
                 Console.WriteLine($"Client disconnected: {client.Client.RemoteEndPoint?.ToString()}");
                 
@@ -291,14 +291,14 @@ namespace Server
             else
             {
 
-                await viewersListLock.WaitAsync();
+                await _viewersListLock.WaitAsync();
                 try
                 {
-                    if (viewers.Contains(client))
+                    if (_viewers.Contains(client))
                     {
-                        viewers.Remove(client);
-                        lastHeard.TryRemove(client, out _);
-                        writeLocks.TryRemove(client, out _);
+                        _viewers.Remove(client);
+                        _lastHeard.TryRemove(client, out _);
+                        _writeLocks.TryRemove(client, out _);
                         
                         Console.WriteLine($"Client disconnected: {client.Client.RemoteEndPoint?.ToString()}");
 
@@ -307,13 +307,13 @@ namespace Server
                 }
                 finally
                 {
-                    viewersListLock.Release();
+                    _viewersListLock.Release();
                 }
             }
         }
-        private async Task SendMessageToClient(TcpClient client, int messageType, string message)
+        async Task SendMessageToClient(TcpClient client, int messageType, string message)
         {
-            bool success = writeLocks.TryGetValue(client, out var writeLock);
+            bool success = _writeLocks.TryGetValue(client, out var writeLock);
             if (success)
             {
                 await writeLock.WaitAsync();
