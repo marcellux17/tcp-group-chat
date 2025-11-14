@@ -12,11 +12,11 @@ namespace Client.Messenger
 
         DateTime _lastMessage;
 
-        TcpClient _socket;
-        IPEndPoint _remoteEndPoint;
+        readonly TcpClient _socket;
+        readonly IPEndPoint _remoteEndPoint;
 
-        SemaphoreSlim _writeLock;
-        Channel<string> _normalMessages;
+        readonly SemaphoreSlim _writeLock;
+        readonly Channel<string> _normalMessages;
 
         int _connectionAliveFlag;
 

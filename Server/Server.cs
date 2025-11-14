@@ -11,21 +11,22 @@ namespace Server
         const int HEARTBEAT_INTERVAL_IN_SEC = 5;
         const int HEARTBEAT_CHECK_LIMIT = 3;
 
-        TcpListener _listener;
+        readonly TcpListener _listener;
 
-        ConcurrentDictionary<TcpClient, string> _clientToUsername;
-        ConcurrentDictionary<string, TcpClient> _usernameToClient;
+        readonly ConcurrentDictionary<TcpClient, string> _clientToUsername;
+        readonly ConcurrentDictionary<string, TcpClient> _usernameToClient;
 
-        ConcurrentDictionary<TcpClient, DateTime> _lastHeard;
-        ConcurrentDictionary<TcpClient, SemaphoreSlim> _writeLocks;
+        readonly ConcurrentDictionary<TcpClient, DateTime> _lastHeard;
+        readonly ConcurrentDictionary<TcpClient, SemaphoreSlim> _writeLocks;
 
-        List<TcpClient> _viewers;
-        SemaphoreSlim _viewersListLock;
+        readonly List<TcpClient> _viewers;
+        readonly SemaphoreSlim _viewersListLock;
 
-        List<string> _messageHistory;
-        SemaphoreSlim _messageHistoryLock;
+        readonly List<string> _messageHistory;
+        readonly SemaphoreSlim _messageHistoryLock;
 
-        Channel<string> _messageQueue;
+        readonly Channel<string> _messageQueue;
+
         public Server()
         {
             IPEndPoint ep = new IPEndPoint(IPAddress.Any, 56000);

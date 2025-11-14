@@ -11,8 +11,8 @@ namespace Client.Viewer
         const int HEARTBEAT_CHECKS_LIMIT = 3;
 
         DateTime _lastMessage;
-        TcpClient _socket;
-        IPEndPoint _remoteEndPoint;
+        readonly TcpClient _socket;
+        readonly IPEndPoint _remoteEndPoint;
 
         int _connectionAliveFlag;
         public Client(IPAddress serverAddress, Int32 serverPort)
