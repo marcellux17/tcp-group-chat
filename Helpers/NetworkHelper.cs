@@ -23,7 +23,7 @@ namespace Helpers
 
             if (!BitConverter.IsLittleEndian)
             {
-                payloadSize.Reverse();
+                Array.Reverse(payloadSize);
             }
             byte[] send = new byte[messageInBytes.Length + 5];
             send[0] = (byte)messageType;
@@ -41,7 +41,7 @@ namespace Helpers
 
             if (!BitConverter.IsLittleEndian)
             {
-                headerBuffer.Reverse();
+                Array.Reverse(headerBuffer);
             }
             return BitConverter.ToInt32(headerBuffer, 0);
         }
