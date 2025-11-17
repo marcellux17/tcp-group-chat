@@ -21,10 +21,6 @@ namespace Helpers
             byte[] messageInBytes = Encoding.UTF8.GetBytes(message);
             byte[] payloadSize = BitConverter.GetBytes(messageInBytes.Length);
 
-            if (!BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(payloadSize);
-            }
             byte[] send = new byte[messageInBytes.Length + 5];
             send[0] = (byte)messageType;
             payloadSize.CopyTo(send, 1);
@@ -39,10 +35,6 @@ namespace Helpers
             byte[] headerBuffer = new byte[HEADER_LENGTH];
             await networkStream.ReadExactlyAsync(headerBuffer, 0, HEADER_LENGTH);
 
-            if (!BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(headerBuffer);
-            }
             return BitConverter.ToInt32(headerBuffer, 0);
         }
         public static async Task<string> GetMessage(TcpClient tcpClient, int messageLength)
