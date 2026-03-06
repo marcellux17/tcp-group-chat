@@ -138,26 +138,29 @@ namespace Server
         {
             string? username = null;
 
-            do
+            while (true)  
             {
                 int messageType = await NetworkHelper.GetMessageType(client);
                 _lastHeard[client] = DateTime.UtcNow;
                 int messageLength = await NetworkHelper.GetMessageLength(client);
                 string message = await NetworkHelper.GetMessage(client, messageLength);
+
                 if (messageType == 0)
                 {
-
                     username = message;
-                    if (_usernameToClient.ContainsKey(username))
+
+                    if (_usernameToClient.TryAdd(username, client))
+                    {
+                        _clientToUsername[client] = username;
+                        await SendMessageToClient(client, 0, "accepted");
+                        break; 
+                    }
+                    else
                     {
                         await SendMessageToClient(client, 0, "taken");
                     }
                 }
-
-            } while (username == null || _usernameToClient.ContainsKey(username));
-
-            _usernameToClient[username] = client;
-            _clientToUsername[client] = username;
+            }
 
             await SendMessageToClient(client, 0, "accepted");
             string userJoinedChatMessage = $"{username} has joined the chat";
