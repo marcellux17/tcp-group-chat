@@ -162,7 +162,6 @@ namespace Server
                 }
             }
 
-            await SendMessageToClient(client, 0, "accepted");
             string userJoinedChatMessage = $"{username} has joined the chat";
             await EnqueueMessage(userJoinedChatMessage);
 
@@ -215,11 +214,13 @@ namespace Server
                     {
                         snapShot = _viewers.ToList();
                     }
-                    finally{
+                    finally
+                    {
                         _viewersListLock.Release();
                     }
 
-                    var sendTasks = snapShot.Select(async client => {
+                    var sendTasks = snapShot.Select(async client =>
+                    {
                         try
                         {
 
@@ -237,35 +238,42 @@ namespace Server
         }
         async Task StartHeartBeatForClient(TcpClient client)
         {
-            int heartBeatChecksLeft = HEARTBEAT_CHECK_LIMIT;
-            while (true)
+            try
             {
-                DateTime latest;
-                bool success = _lastHeard.TryGetValue(client, out latest);
-                if (!success)
+                int heartBeatChecksLeft = HEARTBEAT_CHECK_LIMIT;
+                while (true)
                 {
-                    break;
-                }
-                heartBeatChecksLeft--;
-                if ((DateTime.UtcNow - latest).TotalSeconds <= HEARTBEAT_INTERVAL_IN_SEC * 2.5 && heartBeatChecksLeft >= 0)
-                {
-                    heartBeatChecksLeft = HEARTBEAT_CHECK_LIMIT;
-                    await SendMessageToClient(client, 1, "PING");
+                    DateTime latest;
+                    bool success = _lastHeard.TryGetValue(client, out latest);
+                    if (!success)
+                    {
+                        break;
+                    }
+                    heartBeatChecksLeft--;
+                    if ((DateTime.UtcNow - latest).TotalSeconds <= HEARTBEAT_INTERVAL_IN_SEC * 2.5 && heartBeatChecksLeft >= 0)
+                    {
+                        heartBeatChecksLeft = HEARTBEAT_CHECK_LIMIT;
+                        await SendMessageToClient(client, 1, "PING");
+
+                    }
+                    else if (heartBeatChecksLeft >= 0)
+                    {
+                        await SendMessageToClient(client, 1, "PING");
+
+                    }
+                    else
+                    {
+
+                        await CloseClient(client);
+                        break;
+                    }
+                    await Task.Delay(HEARTBEAT_INTERVAL_IN_SEC * 1000);
 
                 }
-                else if (heartBeatChecksLeft >= 0)
-                {
-                    await SendMessageToClient(client, 1, "PING");
-
-                }
-                else
-                {
-                   
-                    await CloseClient(client);
-                    break;
-                }
-                await Task.Delay(HEARTBEAT_INTERVAL_IN_SEC * 1000);
-                
+            }
+            catch (Exception ex)
+            {
+                await CloseClient(client);
             }
         }
         async Task CloseClient(TcpClient client)
