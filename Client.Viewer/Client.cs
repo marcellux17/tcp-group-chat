@@ -59,34 +59,11 @@ namespace Client.Viewer
         }
         void PrintMessageHistory(string messageHistory)
         {
-            if (messageHistory != String.Empty)
+            List<string> messages = NetworkHelper.ParseMessageHistoryString(messageHistory);
+            foreach (string message in messages)
             {
-                int currentCharIndex = 0;
-                do
-                {
-                    string digits = "";
-                    while (currentCharIndex < messageHistory.Length && char.IsDigit(messageHistory[currentCharIndex]))
-                    {
-                        digits += messageHistory[currentCharIndex];
-                        currentCharIndex++;
-                    }
-                    int messageToBeProcessedLength = int.Parse(digits);
-
-                    string currentMessageBeingProcessed = "";
-
-                    int currentMessageBeingProcessedEndCharIndex = currentCharIndex + messageToBeProcessedLength - 1;
-
-                    currentCharIndex++;
-
-                    while (currentCharIndex <= currentMessageBeingProcessedEndCharIndex && currentCharIndex < messageHistory.Length)
-                    {
-                        currentMessageBeingProcessed += messageHistory[currentCharIndex];
-                        currentCharIndex++;
-                    }
-                    Console.WriteLine(currentMessageBeingProcessed);
-                    Console.WriteLine("----------------------------------------------");
-                } while (currentCharIndex < messageHistory.Length);
-
+                Console.WriteLine(message);
+                Console.WriteLine("----------------------------------------------");
             }
         }
         async Task Listen()

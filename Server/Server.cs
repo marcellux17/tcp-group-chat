@@ -118,15 +118,11 @@ namespace Server
         }
         async Task SendMessageHistoryMessage(TcpClient client)
         {
-            string messagesSoFar = "";
+            string messagesSoFar;
             await _messageHistoryLock.WaitAsync();
             try
             {
-                foreach (string message in this._messageHistory)
-                {
-                    string messageWithDelimiter = "|" + message; 
-                    messagesSoFar += messageWithDelimiter.Length + messageWithDelimiter;
-                }
+                messagesSoFar = NetworkHelper.CreateMessageHistoryString(this._messageHistory);
             }
             finally
             {

@@ -46,5 +46,47 @@ namespace Helpers
 
             return Encoding.UTF8.GetString(messageBuffer);
         }
+        public static string CreateMessageHistoryString(List<string> messageHistory)
+        {
+            string messagesSoFar = "";
+            foreach (string message in messageHistory)
+            {
+                string messageWithDelimiter = "|" + message;
+                messagesSoFar += messageWithDelimiter.Length + messageWithDelimiter;
+            }
+            return messagesSoFar;
+        }
+        public static List<string> ParseMessageHistoryString(string messageHistory)
+        {
+            List<string> messages = new List<string>();
+            if (messageHistory == string.Empty) return messages;
+            
+            int currentCharIndex = 0;
+            do
+            {
+                string digits = "";
+                while (currentCharIndex < messageHistory.Length && char.IsDigit(messageHistory[currentCharIndex]))
+                {
+                    digits += messageHistory[currentCharIndex];
+                    currentCharIndex++;
+                }
+                int messageToBeProcessedLength = int.Parse(digits);
+
+                string currentMessageBeingProcessed = "";
+
+                int currentMessageBeingProcessedEndCharIndex = currentCharIndex + messageToBeProcessedLength - 1;
+
+                currentCharIndex++;
+
+                while (currentCharIndex <= currentMessageBeingProcessedEndCharIndex && currentCharIndex < messageHistory.Length)
+                {
+                    currentMessageBeingProcessed += messageHistory[currentCharIndex];
+                    currentCharIndex++;
+                }
+                messages.Add(currentMessageBeingProcessed);
+            } while (currentCharIndex < messageHistory.Length);
+            
+            return messages;
+        }
     }
 }
