@@ -19,8 +19,7 @@ namespace Server
         readonly ConcurrentDictionary<TcpClient, DateTime> _lastHeard;
         readonly ConcurrentDictionary<TcpClient, SemaphoreSlim> _writeLocks;
 
-        readonly List<TcpClient> _viewers;
-        readonly SemaphoreSlim _viewersListLock;
+        readonly ConcurrentDictionary<TcpClient, byte> _viewers;
 
         readonly List<string> _messageHistory;
         readonly SemaphoreSlim _messageHistoryLock;
@@ -38,8 +37,7 @@ namespace Server
             _lastHeard = new ConcurrentDictionary<TcpClient, DateTime>();
             _writeLocks = new ConcurrentDictionary<TcpClient, SemaphoreSlim>();
 
-            _viewers = new List<TcpClient>();
-            _viewersListLock = new SemaphoreSlim(1, 1);
+            _viewers = new ConcurrentDictionary<TcpClient, byte>();
 
             _messageQueue = Channel.CreateUnbounded<string>();
 
@@ -96,15 +94,7 @@ namespace Server
         }
         async Task HandleViewer(TcpClient client)
         {
-            await _viewersListLock.WaitAsync();
-            try
-            {
-                _viewers.Add(client);
-            }
-            finally
-            {
-                _viewersListLock.Release();
-            }
+            _viewers[client] = 0;
 
             await SendMessageHistoryMessage(client);
 
@@ -204,18 +194,8 @@ namespace Server
             {
                 while (_messageQueue.Reader.TryRead(out var message))
                 {
-                    List<TcpClient> snapShot;
-                    await _viewersListLock.WaitAsync();
-                    try
-                    {
-                        snapShot = _viewers.ToList();
-                    }
-                    finally
-                    {
-                        _viewersListLock.Release();
-                    }
 
-                    var sendTasks = snapShot.Select(async client =>
+                    var sendTasks = _viewers.Keys.Select(async client =>
                     {
                         try
                         {
@@ -299,23 +279,14 @@ namespace Server
             else
             {
 
-                await _viewersListLock.WaitAsync();
-                try
+                if(_viewers.TryRemove(client, out _))
                 {
-                    if (_viewers.Contains(client))
-                    {
-                        _viewers.Remove(client);
-                        _lastHeard.TryRemove(client, out _);
-                        _writeLocks.TryRemove(client, out _);
-                        
-                        Console.WriteLine($"Client disconnected: {client.Client.RemoteEndPoint?.ToString()}");
+                    _lastHeard.TryRemove(client, out _);
+                    _writeLocks.TryRemove(client, out _);
+                    
+                    Console.WriteLine($"Client disconnected: {client.Client.RemoteEndPoint?.ToString()}");
 
-                        client.Close();
-                    }
-                }
-                finally
-                {
-                    _viewersListLock.Release();
+                    client.Close();
                 }
             }
         }
