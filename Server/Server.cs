@@ -216,7 +216,6 @@ namespace Server
         {
             try
             {
-                int heartBeatChecksLeft = HEARTBEAT_CHECK_LIMIT;
                 while (true)
                 {
                     DateTime latest;
@@ -225,26 +224,13 @@ namespace Server
                     {
                         break;
                     }
-                    heartBeatChecksLeft--;
-                    if ((DateTime.UtcNow - latest).TotalSeconds <= HEARTBEAT_INTERVAL_IN_SEC * 2.5 && heartBeatChecksLeft >= 0)
+                    if ((DateTime.UtcNow - latest).TotalSeconds > HEARTBEAT_INTERVAL_IN_SEC * 2.5)
                     {
-                        heartBeatChecksLeft = HEARTBEAT_CHECK_LIMIT;
-                        await SendMessageToClient(client, 1, "PING");
-
-                    }
-                    else if (heartBeatChecksLeft >= 0)
-                    {
-                        await SendMessageToClient(client, 1, "PING");
-
-                    }
-                    else
-                    {
-
                         await CloseClient(client);
                         break;
                     }
+                    await SendMessageToClient(client, 1, "PING");
                     await Task.Delay(HEARTBEAT_INTERVAL_IN_SEC * 1000);
-
                 }
             }
             catch (Exception ex)

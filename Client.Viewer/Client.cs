@@ -8,7 +8,6 @@ namespace Client.Viewer
     internal class Client
     {
         const int HEARTBEAT_INTERVAL_IN_SEC = 5;
-        const int HEARTBEAT_CHECKS_LIMIT = 3;
 
         DateTime _lastMessage;
         readonly TcpClient _socket;
@@ -87,22 +86,15 @@ namespace Client.Viewer
         }
         async Task CheckHeartBeats()
         {
-            int heartBeatChecksLeft = HEARTBEAT_CHECKS_LIMIT;
             while (Interlocked.CompareExchange(ref _connectionAliveFlag, 1, 1) == 1)
             {
-                heartBeatChecksLeft--;
-                if ((DateTime.UtcNow - _lastMessage).TotalSeconds <= HEARTBEAT_INTERVAL_IN_SEC * 2.5 && heartBeatChecksLeft >= 0)
-                {
-                    heartBeatChecksLeft = HEARTBEAT_CHECKS_LIMIT;
-                }
-                else if (heartBeatChecksLeft < 0)
+                if ((DateTime.UtcNow - _lastMessage).TotalSeconds > HEARTBEAT_INTERVAL_IN_SEC * 2.5)
                 {
                     await CloseClient();
+                    return;
                 }
-                if (Interlocked.CompareExchange(ref _connectionAliveFlag, 1, 1) == 1)
-                {
-                    await Task.Delay(HEARTBEAT_INTERVAL_IN_SEC * 1000);
-                }
+
+                await Task.Delay(HEARTBEAT_INTERVAL_IN_SEC * 1000);
             }
         }
         async Task CloseClient()

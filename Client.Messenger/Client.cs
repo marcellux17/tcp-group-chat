@@ -7,8 +7,7 @@ namespace Client.Messenger
 {
     internal class Client
     {
-        const int HEARTBEAT_INTERVALS_IN_SEC = 5;
-        const int HEARBEAT_CHECKS_LIMIT = 3;
+        const int HEARTBEAT_INTERVAL_IN_SEC = 5;
 
         DateTime _lastMessage;
 
@@ -93,22 +92,15 @@ namespace Client.Messenger
         }
        async Task CheckHeartBeats()
         {
-            int heartBeatChecksLeft = HEARBEAT_CHECKS_LIMIT;
             while (Interlocked.CompareExchange(ref _connectionAliveFlag, 1, 1) == 1)
             {
-                heartBeatChecksLeft--;
-                if ((DateTime.UtcNow - _lastMessage).TotalSeconds <= HEARTBEAT_INTERVALS_IN_SEC * 2.5 && heartBeatChecksLeft >= 0)
-                {
-                    heartBeatChecksLeft = HEARBEAT_CHECKS_LIMIT;
-                }
-                else if (heartBeatChecksLeft < 0)
+                if ((DateTime.UtcNow - _lastMessage).TotalSeconds > HEARTBEAT_INTERVAL_IN_SEC * 2.5)
                 {
                     await CloseClient();
+                    return;
                 }
-                if (Interlocked.CompareExchange(ref _connectionAliveFlag, 1, 1) == 1)
-                {
-                    await Task.Delay(HEARTBEAT_INTERVALS_IN_SEC * 1000);
-                }
+
+                await Task.Delay(HEARTBEAT_INTERVAL_IN_SEC * 1000);
             }
         }
         async Task CloseClient()
