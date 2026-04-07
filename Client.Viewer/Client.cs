@@ -26,7 +26,6 @@ namespace Client.Viewer
             {
                 _socket.Connect(_remoteEndPoint);
                 _connectionAliveFlag = 1;
-                CheckHeartBeats();
                 await SendMessage(0, "viewer");
 
                 string? messageHistory = null;
@@ -47,7 +46,7 @@ namespace Client.Viewer
                 } while (messageHistory == null);
 
                 PrintMessageHistory(messageHistory);
-
+                CheckHeartBeats();
                 await Listen();
             }
             catch (Exception ex)

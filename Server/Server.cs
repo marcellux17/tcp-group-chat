@@ -9,7 +9,6 @@ namespace Server
     internal class Server
     {
         const int HEARTBEAT_INTERVAL_IN_SEC = 5;
-        const int HEARTBEAT_CHECK_LIMIT = 3;
 
         readonly TcpListener _listener;
 
@@ -28,7 +27,7 @@ namespace Server
 
         public Server()
         {
-            IPEndPoint ep = new IPEndPoint(IPAddress.Any, 56000);
+            IPEndPoint ep = new IPEndPoint(IPAddress.Any, 0);
             _listener = new TcpListener(ep);
 
             _clientToUsername = new ConcurrentDictionary<TcpClient, string>();
@@ -47,6 +46,10 @@ namespace Server
         public async Task Start()
         {
             _listener.Start();
+
+            int port = ((IPEndPoint)_listener.LocalEndpoint).Port;
+            Console.WriteLine($"Server listening on port {port}");
+            
             StartBroadcastLoop();
             while (true)
             {

@@ -38,7 +38,6 @@ namespace Client.Messenger
 
                 await SendMessage(0, "messenger");
 
-                CheckHeartBeats();
                 Listen();
                 string response = "taken";
                 do
@@ -55,6 +54,7 @@ namespace Client.Messenger
                     Console.Clear();
                 } while (response != "accepted" && Interlocked.CompareExchange(ref _connectionAliveFlag, 1, 1) == 1);
 
+                CheckHeartBeats();
                 
 
                 while (Interlocked.CompareExchange(ref _connectionAliveFlag, 1, 1) == 1)
@@ -67,6 +67,7 @@ namespace Client.Messenger
             }
             catch (Exception ex)
             {
+                Console.WriteLine(ex.Message);
                 await CloseClient();
             }
 
